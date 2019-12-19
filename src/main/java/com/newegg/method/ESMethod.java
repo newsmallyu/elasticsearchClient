@@ -16,7 +16,7 @@ public interface ESMethod {
     public String bulk(String body) throws IOException;
     public String bulk(String index, String body) throws IOException;
 
-    public String search(String index);
+    public String search(String index) throws IOException;
     public String search(String index, String body) throws IOException;
    // public String search(String index, Map<String, Object> body);
 

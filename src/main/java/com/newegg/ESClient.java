@@ -154,21 +154,23 @@ public class ESClient implements Closeable, ESMethod {
     }
 
     @Override
-    public String search(String index) {
-        return null;
+    public String search(String index) throws IOException {
+        String result = search(index, null);
+        return result;
     }
-
-
-
 
     @Override
     public String search(String index, String body) throws IOException {
         String endpoint = null;
-        if (body != null && !"".equals(body)){
-
+        if (index != null && !"".equals(index) ){
+            endpoint = Constant.SLASH + index + Constant.SLASH + "_search";
+        }else {
+            endpoint = Constant.SLASH + "_search";
         }
         Request request = new Request(HttpGet.METHOD_NAME, endpoint);
-        request.setJsonEntity(body);
+        if (body != null && !"".equals(body)){
+            request.setJsonEntity(body);
+        }
         Response response = lowLevelClient.performRequest(request);
         return EntityUtils.toString(response.getEntity());
     }
