@@ -1,27 +1,28 @@
 package com.newegg;
 
-
-
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.newegg.common.Constant;
 import com.newegg.method.ESMethod;
 
 import org.apache.http.HttpHost;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.*;
-import org.elasticsearch.common.unit.TimeValue;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.Map;
 
 
 public class ESClient implements Closeable, ESMethod {
@@ -30,15 +31,12 @@ public class ESClient implements Closeable, ESMethod {
     private RestClientBuilder builder;
     private RestHighLevelClient restHighLevelClient;
     private RestClient lowLevelClient;
-    private TimeValue scrollTimeValue ;
-    private AtomicInteger maxRetryTime;
+    private ObjectMapper mapper = new ObjectMapper();
 
-    private ESClient(RestClientBuilder builder, TimeValue scrollTimeValue, int maxRetryTime){
+    private ESClient(RestClientBuilder builder){
         this.builder = builder;
         this.restHighLevelClient =  new RestHighLevelClient(builder);
         this.lowLevelClient = this.restHighLevelClient.getLowLevelClient();
-        this.scrollTimeValue =  scrollTimeValue;
-        this.maxRetryTime =  new AtomicInteger(maxRetryTime);
     }
 
     public static  Builder builder() {
@@ -53,12 +51,6 @@ public class ESClient implements Closeable, ESMethod {
     }
     public RestClient getLowLevelClient() {
         return lowLevelClient;
-    }
-    public TimeValue getScrollTimeValue() {
-        return scrollTimeValue;
-    }
-    public int getMaxRetryTime() {
-        return maxRetryTime.intValue();
     }
 
     public static void main(String[] args) throws IOException {
@@ -86,7 +78,13 @@ public class ESClient implements Closeable, ESMethod {
                 "{ \"index\" : {\"_id\" : \"4567\" } }\n" +
                 "{ \"name\" : \"aiden8\" }\n";*/
         //String bulk = esClient.bulk(index,body2);
-        System.out.println();
+        String body3 = "{\n" +
+                "    \"size\": 10\n" +
+                "}";
+        String aiden_devtest9 = esClient.search("aiden_devtest9", body3);
+        esClient.scrollAll("aiden_devtest9",20);
+        esClient.close();
+        System.out.println(aiden_devtest9);
         esClient.close();
     }
 
@@ -179,13 +177,65 @@ public class ESClient implements Closeable, ESMethod {
     }
 
 
-
+    /**
+     *
+     * @param index   索引名
+     * @param size   每次scroll返回size的大小
+     * @return
+     * @throws IOException
+     */
     @Override
-    public String scrollAll(String index, String body) {
-        return null;
+    public List<Map> scrollAll(String index, int size) throws IOException {
+        List<Map> resultList = new ArrayList();
+        String endpoint =Constant.SLASH+index+"/_search?scroll=10m";
+        Request request = new Request(HttpPost.METHOD_NAME, endpoint);
+        String body = "{\n" +
+                "  \"size\":"+size+"\n" +
+                "}";
+        request.setJsonEntity(body);
+        Response response = lowLevelClient.performRequest(request);
+        Map<String,Object> map = mapper.readValue(EntityUtils.toString(response.getEntity()), Map.class);
+        String scrollId = (String) map.get("_scroll_id");
+        HashMap hits = (HashMap) map.get("hits");
+        ArrayList firstScollList = (ArrayList) hits.get("hits");
+        resultList.addAll(firstScollList);
+        while (firstScollList.size()>0){
+            List scrollList = constractScrollRequest(scrollId);
+            if (scrollList.size()>0){
+                resultList.addAll(scrollList);
+            }else {
+                deleteScrollId(scrollId);
+                break;
+            }
+        }
+        return resultList;
     }
 
 
+    public List<Map> constractScrollRequest(String scrollId) throws IOException {
+        String endpoint = "/_search/scroll";
+        String body = "{\n" +
+                "  \n" +
+                "    \"scroll\" : \"10m\",\n" +
+                "    \"scroll_id\" : \""+ scrollId+"\"}";
+        Request request = new Request(HttpPost.METHOD_NAME, endpoint);
+        request.setJsonEntity(body);
+        Response response = lowLevelClient.performRequest(request);
+        Map<String,Object> map = mapper.readValue(EntityUtils.toString(response.getEntity()), Map.class);
+        HashMap hits = (HashMap) map.get("hits");
+        ArrayList arrayList = (ArrayList) hits.get("hits");
+        return arrayList;
+    }
+
+    public void deleteScrollId(String scrollId) throws IOException {
+        String endpoint = "/_search/scroll";
+        String body = "{\n" +
+                "    \"scroll_id\" : \"" + scrollId + "\"\n" +
+                "}";
+        Request request = new Request(HttpDelete.METHOD_NAME, endpoint);
+        request.setJsonEntity(body);
+        lowLevelClient.performRequest(request);
+    }
 
     @Override
     public void close() throws IOException {
@@ -204,9 +254,7 @@ public class ESClient implements Closeable, ESMethod {
         private int connectionRequestTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
         private static int DefaultMaxIoThreadCount = -1;
         private int ioThreadCount;
-        private int maxRetryTime = -1;
         private boolean soKeepAlive = false;
-        private TimeValue timeValue = TimeValue.timeValueMillis(1000L * 5);
         private NodeSelector nodeSelector = NodeSelector.ANY;
 
         private Builder() {
@@ -230,12 +278,6 @@ public class ESClient implements Closeable, ESMethod {
             }
             return this;
         }
-
-        public Builder withMaxRetryTime(int maxRetryTime){
-            this.maxRetryTime = maxRetryTime;
-            return this;
-        }
-
 
         public Builder withConnectTimeout(int connectTimeout){
             this.connectTimeout = connectTimeout;
@@ -277,10 +319,6 @@ public class ESClient implements Closeable, ESMethod {
             return this;
         }
 
-        public Builder withScrollTimeValue(TimeValue timeValue) {
-            this.timeValue = timeValue;
-            return this;
-        }
 
         public ESClient build(){
             Builder thisBuilder = this;
@@ -307,7 +345,7 @@ public class ESClient implements Closeable, ESMethod {
                                 .setMaxConnTotal(thisBuilder.maxConnTotal);
                     });
 
-            return new ESClient(builder, this.timeValue, this.maxRetryTime);
+            return new ESClient(builder);
         }
 
     }

@@ -1,6 +1,7 @@
 package com.newegg.method;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 public interface ESMethod {
@@ -28,7 +29,7 @@ public interface ESMethod {
      */
     public boolean indexExists(String index) throws IOException;
 
-    public String scrollAll(String index, String body);
+    public List scrollAll(String index, int size) throws IOException;
 
     public String clusterHealth() throws IOException;
 }
