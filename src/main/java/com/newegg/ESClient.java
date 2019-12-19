@@ -6,12 +6,10 @@ package com.newegg;
 import com.newegg.common.Constant;
 import com.newegg.method.ESMethod;
 
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.*;
@@ -23,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -156,6 +153,12 @@ public class ESClient implements Closeable, ESMethod {
     @Override
     public String search(String index) throws IOException {
         String result = search(index, null);
+        return result;
+    }
+
+    @Override
+    public String searchWithBody(String body) throws IOException {
+        String result = search(null, body);
         return result;
     }
 
