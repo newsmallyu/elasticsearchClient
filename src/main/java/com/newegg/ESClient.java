@@ -5,10 +5,7 @@ import com.newegg.common.Constant;
 import com.newegg.method.ESMethod;
 
 import org.apache.http.HttpHost;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.*;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.*;
@@ -110,9 +107,9 @@ public class ESClient implements Closeable, ESMethod {
     public String insert(String index, String id, String body) throws IOException {
         String endpoint = null;
         if (id != null && !"".equals(id)) {
-            endpoint = Constant.SLASH + index + Constant.SLASH + "_doc" + Constant.SLASH + id;
+            endpoint = Constant.SLASH + index + Constant.SLASH + Constant.DOC_TYPE + Constant.SLASH + id;
         }else {
-            endpoint = Constant.SLASH + index + Constant.SLASH + "_doc";
+            endpoint = Constant.SLASH + index + Constant.SLASH + Constant.DOC_TYPE;
         }
         Request request = new Request(HttpPost.METHOD_NAME, endpoint);
         request.setJsonEntity(body);
@@ -126,6 +123,14 @@ public class ESClient implements Closeable, ESMethod {
         return result;
     }
 
+    @Override
+    public String update(String index, String id, String body) throws IOException {
+        String endpoint = index+Constant.SLASH+Constant.DOC_TYPE+Constant.SLASH+id;
+        Request request = new Request(HttpPut.METHOD_NAME, endpoint);
+        request.setJsonEntity(body);
+        Response response = lowLevelClient.performRequest(request);
+        return EntityUtils.toString(response.getEntity());
+    }
 
 
     @Override
@@ -200,7 +205,7 @@ public class ESClient implements Closeable, ESMethod {
         ArrayList firstScollList = (ArrayList) hits.get("hits");
         resultList.addAll(firstScollList);
         while (firstScollList.size()>0){
-            List scrollList = constractScrollRequest(scrollId);
+            List scrollList = scrollByScrollId(scrollId);
             if (scrollList.size()>0){
                 resultList.addAll(scrollList);
             }else {
@@ -211,8 +216,13 @@ public class ESClient implements Closeable, ESMethod {
         return resultList;
     }
 
-
-    public List<Map> constractScrollRequest(String scrollId) throws IOException {
+    /**
+     * 通过scrollId查询结果
+     * @param scrollId
+     * @return
+     * @throws IOException
+     */
+    public List<Map> scrollByScrollId(String scrollId) throws IOException {
         String endpoint = "/_search/scroll";
         String body = "{\n" +
                 "  \n" +
