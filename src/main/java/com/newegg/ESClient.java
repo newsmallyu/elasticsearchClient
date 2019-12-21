@@ -249,17 +249,17 @@ public class ESClient implements Closeable, ESMethod {
 
     /**
      * @param index 索引名
-     * @param size  每次scroll返回size的大小
+     * @param pageSize  每次scroll返回size的大小
      * @return
      * @throws IOException
      */
     @Override
-    public List<Map> scrollAll(String index, int size) throws IOException {
+    public List<Map> scrollAll(String index, int pageSize) throws IOException {
         List<Map> resultList = new ArrayList();
         String endpoint = Constant.SLASH + index + "/_search?scroll=10m";
         Request request = new Request(HttpPost.METHOD_NAME, endpoint);
         String body = "{\n" +
-                "  \"size\":" + size + "\n" +
+                "  \"size\":" + pageSize + "\n" +
                 "}";
         request.setJsonEntity(body);
         Response response = lowLevelClient.performRequest(request);
