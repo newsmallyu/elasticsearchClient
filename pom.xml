@@ -5,9 +5,9 @@
 
 	<groupId>com.newegg.elasticsearchClient</groupId>
 	<artifactId>elasticsearchClient</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>7.3.0</version>
 	<name>elasticsearch-client</name>
-	<description>Demo project for Spring Boot</description>
+	<description>elasticsearchClient</description>
 
 	<properties>
 		<java.version>1.8</java.version>
@@ -38,6 +38,18 @@
 		</dependency>
 
 	</dependencies>
-
+	<distributionManagement>
+		<repository>
+			<id>ec_release</id>
+			<name>Internal Releasess</name>
+			<url>http://10.16.46.161:8888/nexus/content/repositories/releases/</url>
+			<uniqueVersion>false</uniqueVersion>
+		</repository>
+		<snapshotRepository>
+			<id>ec_snapshots</id>
+			<name>Internal snapshots</name>
+			<url>http://10.16.46.161:8888/nexus/content/repositories/ec_snapshots/</url>
+		</snapshotRepository>
+	</distributionManagement>
 
 </project>

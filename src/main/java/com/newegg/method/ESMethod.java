@@ -36,11 +36,11 @@ public interface ESMethod {
     public void bulk(String index, ArrayList<String> bodyList,int bulkFailRetry) throws IOException;
 
     /**
-     * 批量执行   List中的每一条数据格式如："{ \"index\" : { \"_id\" : \"1234\" } }\n{ \"name\" : \"aiden7\" }\n";
+     * 批量执行   List中的每一条数据格式如(为完整的可执行命令 \n不可省略)："{ \"index\" : { \"_id\" : \"1234\" } }\n{ \"name\" : \"aiden7\" }\n";
      * @param index
      * @param bodyList
-     * @param bulkFailRetry 失败重试次数
-     * @param bulkFailRetryInterval  重试间隔  设置为-1时，会一直重试，直至全部成功
+     * @param bulkFailRetry 失败重试次数   设置为-1时，会一直重试，直至全部成功
+     * @param bulkFailRetryInterval  重试间隔
      * @throws IOException
      */
     public void bulk(String index, ArrayList<String> bodyList,int bulkFailRetry,int bulkFailRetryInterval) throws IOException;
@@ -52,7 +52,7 @@ public interface ESMethod {
     /**
      *
      * @param index
-     * @return 200:exist ; 404:do not exist
+     * @return 200:true exist ; 404:false  not exist
      */
     public boolean indexExists(String index) throws IOException;
 

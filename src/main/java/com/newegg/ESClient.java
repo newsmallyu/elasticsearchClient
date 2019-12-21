@@ -357,17 +357,9 @@ public class ESClient implements Closeable, ESMethod {
         private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
         private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
         private int connectionRequestTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
-        private static int DefaultMaxIoThreadCount = -1;
-        private int ioThreadCount;
         private boolean soKeepAlive = false;
-        private NodeSelector nodeSelector = NodeSelector.ANY;
 
         private Builder() {
-
-        }
-
-        public static int getDefaultMaxIoThreadCount() {
-            return DefaultMaxIoThreadCount > 0 ? DefaultMaxIoThreadCount : Runtime.getRuntime().availableProcessors();
         }
 
         public Builder withHost(String... hosts) {
@@ -399,10 +391,7 @@ public class ESClient implements Closeable, ESMethod {
             return this;
         }
 
-        public Builder withIoThreadCount(int ioThreadCount) {
-            this.ioThreadCount = ioThreadCount;
-            return this;
-        }
+
 
         public Builder withSoKeepAlive(boolean soKeepAlive) {
             this.soKeepAlive = soKeepAlive;
@@ -419,18 +408,13 @@ public class ESClient implements Closeable, ESMethod {
             return this;
         }
 
-        public Builder withNodeSelector(NodeSelector nodeSelector) {
-            this.nodeSelector = nodeSelector;
-            return this;
-        }
+
 
 
         public ESClient build() {
             Builder thisBuilder = this;
-            ioThreadCount = ioThreadCount <= 0 ? getDefaultMaxIoThreadCount() : ioThreadCount;
             RestClientBuilder builder = RestClient.builder(hosts);
-            builder.setNodeSelector(this.nodeSelector)
-                    .setRequestConfigCallback(requestConfigBuilder -> {
+            builder.setRequestConfigCallback(requestConfigBuilder -> {
                         return requestConfigBuilder
                                 .setConnectTimeout(thisBuilder.connectTimeout)
                                 .setSocketTimeout(thisBuilder.socketTimeout)
@@ -441,7 +425,6 @@ public class ESClient implements Closeable, ESMethod {
                         return httpClientBuilder
                                 .setDefaultIOReactorConfig(
                                         IOReactorConfig.custom()
-                                                .setIoThreadCount(thisBuilder.ioThreadCount)
                                                 .setConnectTimeout(thisBuilder.connectTimeout)
                                                 .setSoTimeout(thisBuilder.socketTimeout)
                                                 .setSoKeepAlive(thisBuilder.soKeepAlive)
