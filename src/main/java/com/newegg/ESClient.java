@@ -151,6 +151,23 @@ public class ESClient implements Closeable, ESMethod {
         return EntityUtils.toString(response.getEntity());
     }
 
+    @Override
+    public void bulk(String index, String body) throws IOException {
+        String endpoint = null;
+        if (index != null && !"".equals(index)) {
+            endpoint = Constant.SLASH + index + Constant.SLASH + "_bulk";
+        } else {
+            endpoint = "/_bulk";
+        }
+        Response response = customerRequest(HttpPost.METHOD_NAME, endpoint, body);
+        LOGGER.info(EntityUtils.toString(response.getEntity()));
+    }
+
+    @Override
+    public void bulk(String body) throws IOException {
+        bulk(null, body);
+    }
+
 
     @Override
     public void bulk(ArrayList<String> bodyList) throws IOException {
@@ -165,6 +182,11 @@ public class ESClient implements Closeable, ESMethod {
     @Override
     public void bulk(String index, ArrayList<String> bodyList, int bulkFailRetry) throws IOException {
         bulk(index, bodyList, bulkFailRetry,Constant.DEFAULT_BULK_FAIL_RETRY_INTERVAL);
+    }
+
+    @Override
+    public void bulk(ArrayList<String> bodyList, int bulkFailRetry, int bulkFailRetryInterval) throws IOException {
+        bulk(null,bodyList, bulkFailRetry,bulkFailRetryInterval);
     }
 
     @Override
@@ -215,7 +237,11 @@ public class ESClient implements Closeable, ESMethod {
         }
     }
 
-
+    @Override
+    public String searchWithEndpoint(String endpoint) throws IOException {
+        Response response = customerRequest(HttpGet.METHOD_NAME, endpoint);
+        return EntityUtils.toString(response.getEntity());
+    }
 
 
     @Override
@@ -248,15 +274,20 @@ public class ESClient implements Closeable, ESMethod {
 
 
     /**
+     *
      * @param index 索引名
      * @param pageSize  每次scroll返回size的大小
+     * @param scroll    scrollid有效时间  默认为 1  单位分钟
      * @return
      * @throws IOException
      */
     @Override
-    public List<Map> scrollAll(String index, int pageSize) throws IOException {
+    public List<Map> scrollAll(String index, int pageSize, int scroll) throws IOException {
         List<Map> resultList = new ArrayList();
-        String endpoint = Constant.SLASH + index + "/_search?scroll=10m";
+        if (String.valueOf(scroll) == null || scroll < 1) {
+            scroll = Constant.DEFAULT_SCROLL;
+        }
+        String endpoint = Constant.SLASH + index + "/_search?scroll="+scroll+"m";
         Request request = new Request(HttpPost.METHOD_NAME, endpoint);
         String body = "{\n" +
                 "  \"size\":" + pageSize + "\n" +
@@ -269,7 +300,7 @@ public class ESClient implements Closeable, ESMethod {
         ArrayList firstScrollList = (ArrayList) hits.get("hits");
         resultList.addAll(firstScrollList);
         while (firstScrollList.size() > 0) {
-            List scrollList = scrollByScrollId(scrollId);
+            List scrollList = scrollByScrollId(scrollId,scroll);
             if (scrollList.size() > 0) {
                 resultList.addAll(scrollList);
             } else {
@@ -280,6 +311,12 @@ public class ESClient implements Closeable, ESMethod {
         return resultList;
     }
 
+    @Override
+    public List scrollAll(String index, int pageSize) throws IOException {
+        List<Map> mapList = scrollAll(index, pageSize,Constant.DEFAULT_SCROLL);
+        return mapList;
+    }
+
     /**
      * 通过scrollId查询结果
      *
@@ -287,11 +324,11 @@ public class ESClient implements Closeable, ESMethod {
      * @return
      * @throws IOException
      */
-    public List<Map> scrollByScrollId(String scrollId) throws IOException {
+    public List<Map> scrollByScrollId(String scrollId, int scroll) throws IOException {
         String endpoint = "/_search/scroll";
         String body = "{\n" +
                 "  \n" +
-                "    \"scroll\" : \"10m\",\n" +
+                "    \"scroll\" : \""+scroll+"m\",\n" +
                 "    \"scroll_id\" : \"" + scrollId + "\"}";
         Request request = new Request(HttpPost.METHOD_NAME, endpoint);
         request.setJsonEntity(body);
@@ -333,7 +370,8 @@ public class ESClient implements Closeable, ESMethod {
         return stringBuilder.toString();
     }
 
-    public Response customerRequest(String method_name,String endpoint , String body) throws IOException {
+    @Override
+    public Response customerRequest(String method_name, String endpoint , String body) throws IOException {
         Request request = new Request(method_name, endpoint);
         if (body != null && !"".equals(body)) {
             request.setJsonEntity(body);
@@ -341,7 +379,8 @@ public class ESClient implements Closeable, ESMethod {
         Response response = lowLevelClient.performRequest(request);
         return response;
     }
-    public Response customerRequest(String method_name,String endpoint) throws IOException {
+    @Override
+    public Response customerRequest(String method_name, String endpoint) throws IOException {
         Response response = customerRequest(method_name, endpoint, null);
         return response;
     }

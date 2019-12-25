@@ -1,12 +1,30 @@
 package com.newegg.method;
 
+import org.elasticsearch.client.Response;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public interface ESMethod {
+    /**
+     *
+     * @param method_name  ex:POST PUT GET DELETE
+     * @param endpoint   ex:/_cat/health
+     * @param body    {}
+     * @return
+     * @throws IOException
+     */
+    public Response customerRequest(String method_name, String endpoint, String body) throws IOException;
 
-
+    /**
+     *
+     * @param method_name   ex:POST PUT GET DELETE
+     * @param endpoint    ex:/_cat/health
+     * @return
+     * @throws IOException
+     */
+    public Response customerRequest(String method_name, String endpoint) throws IOException;
     public String creatIndex(String indexName) throws IOException;
 
     public String creatIndex(String indexName, String body) throws IOException;
@@ -31,10 +49,23 @@ public interface ESMethod {
      */
     public String update(String index, String id, String body) throws IOException;
 
+    /**
+     * 直接传完整的body   注：执行失败不会重试
+     * @param index
+     * @param body
+     * @throws IOException
+     */
+    public void bulk(String index, String body) throws IOException;
+
+    public void bulk(String body) throws IOException;
+
     public void bulk(ArrayList<String> bodyList ) throws IOException;
+
     public void bulk(ArrayList<String> bodyList,int bulkFailRetry ) throws IOException;
+
     public void bulk(String index, ArrayList<String> bodyList,int bulkFailRetry) throws IOException;
 
+    public void bulk(ArrayList<String> bodyList, int bulkFailRetry, int bulkFailRetryInterval) throws IOException;
     /**
      * 批量执行   List中的每一条数据格式如(为完整的可执行命令 \n不可省略)："{ \"index\" : { \"_id\" : \"1234\" } }\n{ \"name\" : \"aiden7\" }\n";
      * @param index
@@ -45,8 +76,13 @@ public interface ESMethod {
      */
     public void bulk(String index, ArrayList<String> bodyList,int bulkFailRetry,int bulkFailRetryInterval) throws IOException;
 
+
+    public String searchWithEndpoint(String endpoint) throws IOException;
+
     public String searchWithBody(String body) throws IOException;
+
     public String search(String index) throws IOException;
+
     public String search(String index, String body) throws IOException;
 
     /**
@@ -59,11 +95,13 @@ public interface ESMethod {
     /**
      * 获取index中的全部数据
      * @param index
-     * @param size
+     * @param pageSize
      * @return
      * @throws IOException
      */
-    public List scrollAll(String index, int size) throws IOException;
+    public List scrollAll(String index, int pageSize) throws IOException;
+
+    public List scrollAll(String index, int pageSize, int scroll) throws IOException;
 
     public String clusterHealth() throws IOException;
 

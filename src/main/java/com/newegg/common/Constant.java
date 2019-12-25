@@ -1,6 +1,5 @@
 package com.newegg.common;
 
-
 public class Constant {
 
     public static final String VERTICAL_STR = "|";
@@ -13,6 +12,7 @@ public class Constant {
 
     public static final int DEFAULT_BULK_FAIL_RETRY_INTERVAL = 100;
     public static final int DEFAULT_BULK_FAIL_RETRY = 3;
+    public static final int DEFAULT_SCROLL = 1;
 
 
 }
