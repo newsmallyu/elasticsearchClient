@@ -220,18 +220,14 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
             LOGGER.warn("Bulk failedList will be retry");
             bulk(index, failedList, bulkFailRetry - 1,bulkFailRetryInterval);
         }
-        if (bulkFailRetry == -1 && failedList.size()>0){
+        if (bulkFailRetry == -1 && failedList.size()>0) {
             try {
                 Thread.sleep(bulkFailRetryInterval);
             } catch (InterruptedException e) {
                 LOGGER.error("bulk sleep Error");
             }
-            LOGGER.warn("Bulk failedList will be retry:{}",appendString(failedList));
-            try {
-                bulk(index, failedList, -1,bulkFailRetryInterval);
-            }catch (Exception ex){
-                LOGGER.error("loop bulk error:{}",ex.getMessage());
-            }
+            LOGGER.warn("Bulk failedList will be retry:{}", appendString(failedList));
+            bulk(index, failedList, -1, bulkFailRetryInterval);
         }
         if (bulkFailRetry == 0 && failedList.size() > 0){
             String failedString = appendString(bodyList);
