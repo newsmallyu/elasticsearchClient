@@ -2,7 +2,6 @@ package com.newegg;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.newegg.common.Constant;
-import com.newegg.method.ESMethod;
 
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.*;
@@ -22,15 +21,15 @@ import java.util.List;
 import java.util.Map;
 
 
-public class ESClient implements Closeable, ESMethod {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ESClient.class);
+public class ESLowClient implements Closeable, com.newegg.method.ESClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ESLowClient.class);
 
     private RestClientBuilder builder;
     private RestHighLevelClient restHighLevelClient;
     private RestClient lowLevelClient;
     private ObjectMapper mapper = new ObjectMapper();
 
-    private ESClient(RestClientBuilder builder) {
+    private ESLowClient(RestClientBuilder builder) {
         this.builder = builder;
         this.restHighLevelClient = new RestHighLevelClient(builder);
         this.lowLevelClient = this.restHighLevelClient.getLowLevelClient();
@@ -107,8 +106,7 @@ public class ESClient implements Closeable, ESMethod {
 
     @Override
     public String creatIndex(String indexName) throws IOException {
-        String result = creatIndex(indexName, null);
-        return result;
+        return creatIndex(indexName, null);
     }
 
     @Override
@@ -138,8 +136,7 @@ public class ESClient implements Closeable, ESMethod {
 
     @Override
     public String insert(String index, String body) throws IOException {
-        String result = insert(index, null, body);
-        return result;
+        return insert(index, null, body);
     }
 
     @Override
@@ -152,7 +149,7 @@ public class ESClient implements Closeable, ESMethod {
     }
 
     @Override
-    public void bulk(String index, String body) throws IOException {
+    public String bulk(String index, String body) throws IOException {
         String endpoint = null;
         if (index != null && !"".equals(index)) {
             endpoint = Constant.SLASH + index + Constant.SLASH + "_bulk";
@@ -160,12 +157,12 @@ public class ESClient implements Closeable, ESMethod {
             endpoint = "/_bulk";
         }
         Response response = customerRequest(HttpPost.METHOD_NAME, endpoint, body);
-        LOGGER.info(EntityUtils.toString(response.getEntity()));
+        return EntityUtils.toString(response.getEntity());
     }
 
     @Override
-    public void bulk(String body) throws IOException {
-        bulk(null, body);
+    public String bulk(String body) throws IOException {
+        return bulk(null, body);
     }
 
 
@@ -209,6 +206,7 @@ public class ESClient implements Closeable, ESMethod {
                 HashMap item = items.get(i);
                 HashMap itemEach = (HashMap) item.get("index");
                 if ( itemEach.get("error")!= null) {
+                    LOGGER.warn("bulk failed :{}",itemEach.get("error"));
                     failedList.add(bodyList.get(i));
                 }
             }
@@ -228,13 +226,22 @@ public class ESClient implements Closeable, ESMethod {
             } catch (InterruptedException e) {
                 LOGGER.error("bulk sleep Error");
             }
-            LOGGER.warn("Bulk failedList will be retry");
-            bulk(index, failedList, -1,bulkFailRetryInterval);
+            LOGGER.warn("Bulk failedList will be retry:{}",appendString(failedList));
+            try {
+                bulk(index, failedList, -1,bulkFailRetryInterval);
+            }catch (Exception ex){
+                LOGGER.error("loop bulk error:{}",ex.getMessage());
+            }
         }
         if (bulkFailRetry == 0 && failedList.size() > 0){
             String failedString = appendString(bodyList);
             LOGGER.error("bulk Failed:{}",failedString);
         }
+    }
+
+    @Override
+    public void bulkAlwaysRetry(String index, ArrayList<String> bodyList, int bulkFailRetryInterval) throws IOException {
+        bulk(index, bodyList,-1, bulkFailRetryInterval);
     }
 
     @Override
@@ -450,7 +457,7 @@ public class ESClient implements Closeable, ESMethod {
 
 
 
-        public ESClient build() {
+        public ESLowClient build() {
             Builder thisBuilder = this;
             RestClientBuilder builder = RestClient.builder(hosts);
             builder.setRequestConfigCallback(requestConfigBuilder -> {
@@ -472,7 +479,7 @@ public class ESClient implements Closeable, ESMethod {
                                 .setMaxConnTotal(thisBuilder.maxConnTotal);
                     });
 
-            return new ESClient(builder);
+            return new ESLowClient(builder);
         }
 
     }

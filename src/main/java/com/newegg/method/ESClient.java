@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public interface ESMethod {
+public interface ESClient {
     /**
      *
      * @param method_name  ex:POST PUT GET DELETE
@@ -55,9 +55,9 @@ public interface ESMethod {
      * @param body
      * @throws IOException
      */
-    public void bulk(String index, String body) throws IOException;
+    public String bulk(String index, String body) throws IOException;
 
-    public void bulk(String body) throws IOException;
+    public String bulk(String body) throws IOException;
 
     public void bulk(ArrayList<String> bodyList ) throws IOException;
 
@@ -76,6 +76,7 @@ public interface ESMethod {
      */
     public void bulk(String index, ArrayList<String> bodyList,int bulkFailRetry,int bulkFailRetryInterval) throws IOException;
 
+    public void bulkAlwaysRetry(String index, ArrayList<String> bodyList,int bulkFailRetryInterval) throws IOException;
 
     public String searchWithEndpoint(String endpoint) throws IOException;
 

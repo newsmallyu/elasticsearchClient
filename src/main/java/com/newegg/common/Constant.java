@@ -11,8 +11,7 @@ public class Constant {
 
 
     public static final int DEFAULT_BULK_FAIL_RETRY_INTERVAL = 100;
-    public static final int DEFAULT_BULK_FAIL_RETRY = 3;
+    public static final int DEFAULT_BULK_FAIL_RETRY = 1;
     public static final int DEFAULT_SCROLL = 1;
-
 
 }
