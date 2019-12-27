@@ -5,7 +5,7 @@
 
 	<groupId>com.newegg.elasticsearchClient</groupId>
 	<artifactId>elasticsearchClient</artifactId>
-	<version>7.3.0</version>
+	<version>7.3.0-1</version>
 	<name>elasticsearch-client</name>
 	<description>elasticsearchClient</description>
 
