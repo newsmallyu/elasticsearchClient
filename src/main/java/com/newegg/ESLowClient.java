@@ -189,16 +189,66 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
     @Override
     public void bulk(String index, ArrayList<String> bodyList, int bulkFailRetry ,int bulkFailRetryInterval) throws IOException {
         String endpoint = null;
-        ArrayList failedList = new ArrayList();
+        ArrayList failedList;
         if (index != null && !"".equals(index)) {
             endpoint = Constant.SLASH + index + Constant.SLASH + "_bulk";
         } else {
             endpoint = "/_bulk";
         }
-        Request request = new Request(HttpPost.METHOD_NAME, endpoint);
         String body = appendString(bodyList);
-        request.setJsonEntity(body);
-        Response response = lowLevelClient.performRequest(request);
+        Response response = bulkRetryRequest(endpoint, body);
+        failedList = (ArrayList) getBulkFailedList(response, bodyList);
+        if (bulkFailRetry > 0 && failedList.size() > 0) {
+            for (int i = 0; i < bulkFailRetry; i++) {
+                try {
+                    Thread.sleep(bulkFailRetryInterval);
+                } catch (InterruptedException e) {
+                    LOGGER.error("bulk sleep Error");
+                }
+                LOGGER.warn("Bulk failedList will be retry:{}", appendString(failedList));
+                String failedBody = appendString(failedList);
+                Response retryRes = bulkRetryRequest(endpoint, failedBody);
+                failedList = (ArrayList) getBulkFailedList(retryRes, failedList);
+                while (failedList.size()==0){
+                    break;
+                }
+            }
+        }
+        if (bulkFailRetry == -1 && failedList.size()>0) {
+            while (true){
+                try {
+                    Thread.sleep(bulkFailRetryInterval);
+                } catch (InterruptedException e) {
+                    LOGGER.error("bulk sleep Error");
+                }
+                LOGGER.warn("Bulk failedList will be retry:{}", appendString(failedList));
+                String failedBody = appendString(failedList);
+                Response retryRes = bulkRetryRequest(endpoint, failedBody);
+                failedList = (ArrayList) getBulkFailedList(retryRes, failedList);
+                while (failedList.size()==0){
+                    break;
+                }
+            }
+        }
+        if (bulkFailRetry == 0 && failedList.size() > 0){
+            String failedString = appendString(bodyList);
+            LOGGER.error("bulk Failed:{}",failedString);
+        }
+    }
+
+    /**
+     * 此方法供bulk内部重试调用
+     * @param endpoint
+     * @param body
+     * @return
+     * @throws IOException
+     */
+    public Response bulkRetryRequest(String endpoint, String body) throws IOException {
+        Response retryRes= customerRequest(HttpPost.METHOD_NAME, endpoint, body);
+        return retryRes;
+    }
+    public List getBulkFailedList(Response response,List originalList) throws IOException {
+        ArrayList failedList = new ArrayList();
         Map<String, Object> map = mapper.readValue(EntityUtils.toString(response.getEntity()), Map.class);
         if (map.get("errors") != null && (boolean)map.get("errors")) {
             ArrayList<HashMap> items = (ArrayList) map.get("items");
@@ -207,37 +257,35 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
                 HashMap itemEach = (HashMap) item.get("index");
                 if ( itemEach.get("error")!= null) {
                     LOGGER.warn("bulk failed :{}",itemEach.get("error"));
-                    failedList.add(bodyList.get(i));
+                    failedList.add(originalList.get(i));
                 }
             }
         }
-        if (bulkFailRetry > 0 && failedList.size() > 0) {
-            try {
-                Thread.sleep(bulkFailRetryInterval);
-            } catch (InterruptedException e) {
-                LOGGER.error("bulk sleep Error");
-            }
-            LOGGER.warn("Bulk failedList will be retry");
-            bulk(index, failedList, bulkFailRetry - 1,bulkFailRetryInterval);
-        }
-        if (bulkFailRetry == -1 && failedList.size()>0) {
-            try {
-                Thread.sleep(bulkFailRetryInterval);
-            } catch (InterruptedException e) {
-                LOGGER.error("bulk sleep Error");
-            }
-            LOGGER.warn("Bulk failedList will be retry:{}", appendString(failedList));
-            bulk(index, failedList, -1, bulkFailRetryInterval);
-        }
-        if (bulkFailRetry == 0 && failedList.size() > 0){
-            String failedString = appendString(bodyList);
-            LOGGER.error("bulk Failed:{}",failedString);
-        }
+        return failedList;
     }
 
     @Override
     public void bulkAlwaysRetry(String index, ArrayList<String> bodyList, int bulkFailRetryInterval) throws IOException {
         bulk(index, bodyList,-1, bulkFailRetryInterval);
+    }
+
+    @Override
+    public List bulkWithReturnFailedBody(String index, ArrayList<String> bodyList) throws IOException {
+        String endpoint = null;
+        if (index != null && !"".equals(index)) {
+            endpoint = Constant.SLASH + index + Constant.SLASH + "_bulk";
+        } else {
+            endpoint = "/_bulk";
+        }
+        String body = appendString(bodyList);
+        Response retryRes = bulkRetryRequest(endpoint, body);
+        ArrayList failedList = (ArrayList) getBulkFailedList(retryRes, bodyList);
+        return failedList;
+    }
+
+    @Override
+    public List bulkWithReturnFailedBody(ArrayList<String> bodyList) throws IOException {
+        return bulkWithReturnFailedBody(null, bodyList);
     }
 
     @Override

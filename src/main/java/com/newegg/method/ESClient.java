@@ -140,6 +140,20 @@ public interface ESClient {
     public void bulkAlwaysRetry(String index, ArrayList<String> bodyList,int bulkFailRetryInterval) throws IOException;
 
     /**
+     *
+     * @param index
+     * @param bodyList
+     * @return
+     */
+    public List bulkWithReturnFailedBody(String index, ArrayList<String> bodyList) throws IOException;
+
+    /**
+     *
+     * @param bodyList
+     * @return
+     */
+    public List bulkWithReturnFailedBody(ArrayList<String> bodyList) throws IOException;
+    /**
      * ex : /{index_name}/_search?size=2
      * @param endpoint
      * @return
