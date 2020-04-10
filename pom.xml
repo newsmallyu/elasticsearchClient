@@ -5,7 +5,7 @@
 
 	<groupId>com.newegg.elasticsearchClient</groupId>
 	<artifactId>elasticsearchClient</artifactId>
-	<version>7.3.0-2</version>
+	<version>7.3.0-3</version>
 	<name>elasticsearch-client</name>
 	<description>elasticsearchClient</description>
 
@@ -40,15 +40,14 @@
 	</dependencies>
 	<distributionManagement>
 		<repository>
-			<id>ec_release</id>
-			<name>Internal Releasess</name>
-			<url>http://10.16.46.161:8888/nexus/content/repositories/releases/</url>
-			<uniqueVersion>false</uniqueVersion>
+			<id>central</id>
+			<name>a.newegg.org-releases</name>
+			<url>https://a.newegg.org/artifactory/newegg-maven</url>
 		</repository>
 		<snapshotRepository>
-			<id>ec_snapshots</id>
-			<name>Internal snapshots</name>
-			<url>http://10.16.46.161:8888/nexus/content/repositories/ec_snapshots/</url>
+			<id>snapshots</id>
+			<name>a.newegg.org-snapshots</name>
+			<url>https://a.newegg.org/artifactory/newegg-maven</url>
 		</snapshotRepository>
 	</distributionManagement>
 

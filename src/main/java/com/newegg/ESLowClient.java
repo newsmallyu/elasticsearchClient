@@ -209,7 +209,7 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
                 String failedBody = appendString(failedList);
                 Response retryRes = bulkRetryRequest(endpoint, failedBody);
                 failedList = (ArrayList) getBulkFailedList(retryRes, failedList);
-                while (failedList.size()==0){
+                if (failedList.size()==0){
                     break;
                 }
             }
@@ -225,7 +225,7 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
                 String failedBody = appendString(failedList);
                 Response retryRes = bulkRetryRequest(endpoint, failedBody);
                 failedList = (ArrayList) getBulkFailedList(retryRes, failedList);
-                while (failedList.size()==0){
+                if (failedList.size()==0){
                     break;
                 }
             }
@@ -526,6 +526,22 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
             return new ESLowClient(builder);
         }
 
+    }
+    public static void main(String[] args) {
+        ESLowClient esLowClient = ESLowClient.builder().withHost("10.16.236.131:9200").build();
+
+        String ss ="{ \"index\" : { \"_index\" : \"aiden_devtest9\", \"_id\" : \"123\" } }\n" +
+                "{\"computer_name\":\"ST01SCO04.buyabs.corp\",\"hashcode\":461145296,\"beat.hostname\":\"ST01SCO04\",\"beat.name\":\"ST01SCO04\",\"host.os.build\":\"7601.24383\",\"host.architecture\":\"x86_64\",\"@timestamp\":\"2020-04-09T23:04:15.763Z\",\"host.os.platform\":\"windows\",\"host.os.version\":\"6.1\",\"host.os.name\":\"Windows Server 2008 R2 Standard\",\"host.name\":\"ST01SCO04\",\"host.os.family\":\"windows\",\"beat.version\":\"6.7.1\",\"host.id\":\"c6cb6280-01b3-4ea6-ac2d-8fbd488dc9b0\"}\n";
+        String sss = "{ \"index\" : { \"_index\" : \"aiden_devtest9\", \"_id\" : \"1234\" } }\n" +
+                "{\"computer_name\":\"E4CCP02.mercury.corp\",\"hashcode\":1994381822,\"beat.hostname\":\"E4CCP02\",\"beat.name\":\"E4CCP02\",\"host.os.build\":\"9600.19629\",\"host.architecture\":\"x86_64\",\"@timestamp\":\"2020-04-09T23:04:15.599Z\",\"host.os.platform\":\"windows\",\"host.os.version\":\"6.3\",\"host.os.name\":\"Windows Server 2012 R2 Standard\",\"host.name\":\"E4CCP02\",\"host.os.family\":\"windows\",\"beat.version\":\"6.7.1\",\"host.id\":\"a1a16283-06c8-429e-baa2-cbe1ddc23731\"}\n";
+        ArrayList<String> list = new ArrayList();
+        list.add(ss);
+        list.add(sss);
+        try {
+            esLowClient.bulk("aiden_devtest9",list,3,1000);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
