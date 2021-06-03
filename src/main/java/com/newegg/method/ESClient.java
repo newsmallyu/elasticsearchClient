@@ -212,6 +212,8 @@ public interface ESClient {
      */
     public List scrollAll(String index, int pageSize, int scroll) throws IOException;
 
+
+    public List scrollAllWithBody(String index, int scroll,String body) throws IOException;
     /**
      * 集群状态
      * @return

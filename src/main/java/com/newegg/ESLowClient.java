@@ -361,6 +361,32 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
         }
         return resultList;
     }
+    @Override
+    public List scrollAllWithBody(String index, int scroll, String body) throws IOException {
+        List<Map> resultList = new ArrayList();
+        if (String.valueOf(scroll) == null || scroll < 1) {
+            scroll = Constant.DEFAULT_SCROLL;
+        }
+        String endpoint = Constant.SLASH + index + "/_search?scroll="+scroll+"m";
+        Request request = new Request(HttpPost.METHOD_NAME, endpoint);
+        request.setJsonEntity(body);
+        Response response = lowLevelClient.performRequest(request);
+        Map<String, Object> map = mapper.readValue(EntityUtils.toString(response.getEntity()), Map.class);
+        String scrollId = (String) map.get("_scroll_id");
+        HashMap hits = (HashMap) map.get("hits");
+        ArrayList firstScrollList = (ArrayList) hits.get("hits");
+        resultList.addAll(firstScrollList);
+        while (firstScrollList.size() > 0) {
+            List scrollList = scrollByScrollId(scrollId,scroll);
+            if (scrollList.size() > 0) {
+                resultList.addAll(scrollList);
+            } else {
+                deleteScrollId(scrollId);
+                break;
+            }
+        }
+        return resultList;
+    }
 
     @Override
     public List scrollAll(String index, int pageSize) throws IOException {
