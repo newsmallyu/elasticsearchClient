@@ -10,6 +10,7 @@ import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.*;
 
 
+import org.elasticsearch.client.sniff.Sniffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +28,15 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
     private RestClientBuilder builder;
     private RestHighLevelClient restHighLevelClient;
     private RestClient lowLevelClient;
+    private Sniffer sniffer;
     private ObjectMapper mapper = new ObjectMapper();
 
-    private ESLowClient(RestClientBuilder builder) {
+    private ESLowClient(RestClientBuilder builder,int sniffIntervalMillis) {
         this.builder = builder;
         this.restHighLevelClient = new RestHighLevelClient(builder);
         this.lowLevelClient = this.restHighLevelClient.getLowLevelClient();
+        this.sniffer = Sniffer.builder(lowLevelClient)
+                .setSniffIntervalMillis(sniffIntervalMillis).build();
     }
 
     public static Builder builder() {
@@ -363,6 +367,37 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
     }
 
     @Override
+    public List scrollAllWithBody(String index, int scroll, String body) throws IOException {
+        List<Map> resultList = new ArrayList();
+        if (String.valueOf(scroll) == null || scroll < 1) {
+            scroll = Constant.DEFAULT_SCROLL;
+        }
+        String endpoint = Constant.SLASH + index + "/_search?scroll="+scroll+"m";
+        Request request = new Request(HttpPost.METHOD_NAME, endpoint);
+//        String body = "{\n" +
+//                "  \"size\":" + pageSize + "\n" +
+//                "}";
+
+        request.setJsonEntity(body);
+        Response response = lowLevelClient.performRequest(request);
+        Map<String, Object> map = mapper.readValue(EntityUtils.toString(response.getEntity()), Map.class);
+        String scrollId = (String) map.get("_scroll_id");
+        HashMap hits = (HashMap) map.get("hits");
+        ArrayList firstScrollList = (ArrayList) hits.get("hits");
+        resultList.addAll(firstScrollList);
+        while (firstScrollList.size() > 0) {
+            List scrollList = scrollByScrollId(scrollId,scroll);
+            if (scrollList.size() > 0) {
+                resultList.addAll(scrollList);
+            } else {
+                deleteScrollId(scrollId);
+                break;
+            }
+        }
+        return resultList;
+    }
+
+    @Override
     public List scrollAll(String index, int pageSize) throws IOException {
         List<Map> mapList = scrollAll(index, pageSize,Constant.DEFAULT_SCROLL);
         return mapList;
@@ -410,6 +445,8 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
 
     @Override
     public void close() throws IOException {
+        this.sniffer.close();
+        this.lowLevelClient.close();
         this.restHighLevelClient.close();
     }
 
@@ -442,16 +479,21 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
         public static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 30000;
         public static final int DEFAULT_MAX_CONN_PER_ROUTE = 10;
         public static final int DEFAULT_MAX_CONN_TOTAL = 30;
+        public static final int DEFAULT_SNIFFINTERVALMILLIS = 300000;
         private int maxConnTotal = DEFAULT_MAX_CONN_TOTAL;
         private int maxConnPerRoute = DEFAULT_MAX_CONN_PER_ROUTE;
         private int connectTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
         private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
         private int connectionRequestTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
         private boolean soKeepAlive = false;
+        private int sniffIntervalMillis = DEFAULT_SNIFFINTERVALMILLIS;
 
         private Builder() {
         }
-
+        public Builder withSniffIntervalMillis(int sniffIntervalMillis) {
+            this.sniffIntervalMillis = sniffIntervalMillis;
+            return this;
+        }
         public Builder withHost(String... hosts) {
             this.hosts = new HttpHost[hosts.length];
             for (int i = 0; i < hosts.length; i++) {
@@ -523,12 +565,12 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
                                 .setMaxConnTotal(thisBuilder.maxConnTotal);
                     });
 
-            return new ESLowClient(builder);
+            return new ESLowClient(builder, thisBuilder.sniffIntervalMillis);
         }
 
     }
     public static void main(String[] args) {
-        ESLowClient esLowClient = ESLowClient.builder().withHost("10.16.236.131:9200").build();
+        ESLowClient esLowClient = ESLowClient.builder().withHost("10.16.78.136:8200").build();
 
         String ss ="{ \"index\" : { \"_index\" : \"aiden_devtest9\", \"_id\" : \"123\" } }\n" +
                 "{\"computer_name\":\"ST01SCO04.buyabs.corp\",\"hashcode\":461145296,\"beat.hostname\":\"ST01SCO04\",\"beat.name\":\"ST01SCO04\",\"host.os.build\":\"7601.24383\",\"host.architecture\":\"x86_64\",\"@timestamp\":\"2020-04-09T23:04:15.763Z\",\"host.os.platform\":\"windows\",\"host.os.version\":\"6.1\",\"host.os.name\":\"Windows Server 2008 R2 Standard\",\"host.name\":\"ST01SCO04\",\"host.os.family\":\"windows\",\"beat.version\":\"6.7.1\",\"host.id\":\"c6cb6280-01b3-4ea6-ac2d-8fbd488dc9b0\"}\n";
@@ -539,6 +581,7 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
         list.add(sss);
         try {
             esLowClient.bulk("aiden_devtest9",list,3,1000);
+            System.out.println("success");
         } catch (IOException e) {
             e.printStackTrace();
         }
