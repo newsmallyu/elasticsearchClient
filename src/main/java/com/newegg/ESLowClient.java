@@ -4,8 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.newegg.common.Constant;
 
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.*;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.ssl.SSLContexts;
+import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.*;
 
@@ -13,8 +19,16 @@ import org.elasticsearch.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import java.io.Closeable;
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -463,7 +477,8 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
     }
 
     public static class Builder {
-        private HttpHost[] hosts;
+        private HttpHost[] hosts =null;
+        private HttpHost[] httpsHosts =null;
         public static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 1000;
         public static final int DEFAULT_SOCKET_TIMEOUT_MILLIS = 30000;
         public static final int DEFAULT_MAX_CONN_PER_ROUTE = 10;
@@ -474,6 +489,9 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
         private int socketTimeout = DEFAULT_SOCKET_TIMEOUT_MILLIS;
         private int connectionRequestTimeout = DEFAULT_CONNECT_TIMEOUT_MILLIS;
         private boolean soKeepAlive = false;
+        private String userName = null;
+        private String password = null;
+
 
         private Builder() {
         }
@@ -489,6 +507,28 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
                     this.hosts[i] = new HttpHost(host, 8200, null);
                 }
             }
+            return this;
+        }
+        public Builder withHttpsHosts(String... hosts) {
+            this.hosts = new HttpHost[hosts.length];
+            for (int i = 0; i < hosts.length; i++) {
+                String host = hosts[i];
+                if (hosts[i].contains(":")) {
+                    String[] hosrArr = host.split(":");
+                    this.hosts[i] = new HttpHost(hosrArr[0], Integer.parseInt(hosrArr[1]), "https");
+                } else {
+                    this.hosts[i] = new HttpHost(host, 8200, "https");
+                }
+            }
+            return this;
+        }
+
+        public Builder withUserName(String userName) {
+            this.userName = userName;
+            return this;
+        }
+        public Builder withPassword(String password) {
+            this.password = password;
             return this;
         }
 
@@ -529,25 +569,73 @@ public class ESLowClient implements Closeable, com.newegg.method.ESClient {
 
         public ESLowClient build() {
             Builder thisBuilder = this;
-            RestClientBuilder builder = RestClient.builder(hosts);
-            builder.setRequestConfigCallback(requestConfigBuilder -> {
-                        return requestConfigBuilder
-                                .setConnectTimeout(thisBuilder.connectTimeout)
-                                .setSocketTimeout(thisBuilder.socketTimeout)
-                                .setConnectionRequestTimeout(thisBuilder.connectionRequestTimeout)
-                                .setRedirectsEnabled(true);
-                    })
-                    .setHttpClientConfigCallback(httpClientBuilder -> {
-                        return httpClientBuilder
-                                .setDefaultIOReactorConfig(
-                                        IOReactorConfig.custom()
-                                                .setConnectTimeout(thisBuilder.connectTimeout)
-                                                .setSoTimeout(thisBuilder.socketTimeout)
-                                                .setSoKeepAlive(thisBuilder.soKeepAlive)
-                                                .build())
-                                .setMaxConnPerRoute(thisBuilder.maxConnPerRoute)
-                                .setMaxConnTotal(thisBuilder.maxConnTotal);
-                    });
+            RestClientBuilder builder;
+            if (hosts != null) {
+                builder = RestClient.builder(hosts);
+            }else {
+                builder = RestClient.builder(httpsHosts);
+            }
+
+            if (this.userName != null && this.password != null) {
+                final CredentialsProvider credentialsProvider =
+                        new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(AuthScope.ANY,
+                        new UsernamePasswordCredentials(this.userName, this.password));
+                SSLContext sslcontext = null;
+                try {
+                    sslcontext = SSLContexts.custom()
+                            .loadTrustMaterial(new TrustStrategy() {
+                                @Override
+                                public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                                    return true;
+                                }
+                            }).build();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                SSLContext finalSslcontext = sslcontext;
+                builder.setRequestConfigCallback(requestConfigBuilder -> {
+                    return requestConfigBuilder
+                            .setConnectTimeout(thisBuilder.connectTimeout)
+                            .setSocketTimeout(thisBuilder.socketTimeout)
+                            .setConnectionRequestTimeout(thisBuilder.connectionRequestTimeout)
+                            .setRedirectsEnabled(true);
+                })
+                        .setHttpClientConfigCallback(httpClientBuilder -> {
+                            return httpClientBuilder
+                                    .setDefaultIOReactorConfig(
+                                            IOReactorConfig.custom()
+                                                    .setConnectTimeout(thisBuilder.connectTimeout)
+                                                    .setSoTimeout(thisBuilder.socketTimeout)
+                                                    .setSoKeepAlive(thisBuilder.soKeepAlive)
+                                                    .build())
+                                    .setMaxConnPerRoute(thisBuilder.maxConnPerRoute)
+                                    .setDefaultCredentialsProvider(credentialsProvider)
+                                    .setSSLContext(finalSslcontext)
+                                    .setSSLHostnameVerifier((hostname, session) -> true)
+                                    .setMaxConnTotal(thisBuilder.maxConnTotal);
+                        });
+            }else {
+                builder.setRequestConfigCallback(requestConfigBuilder -> {
+                    return requestConfigBuilder
+                            .setConnectTimeout(thisBuilder.connectTimeout)
+                            .setSocketTimeout(thisBuilder.socketTimeout)
+                            .setConnectionRequestTimeout(thisBuilder.connectionRequestTimeout)
+                            .setRedirectsEnabled(true);
+                })
+                        .setHttpClientConfigCallback(httpClientBuilder -> {
+                            return httpClientBuilder
+                                    .setDefaultIOReactorConfig(
+                                            IOReactorConfig.custom()
+                                                    .setConnectTimeout(thisBuilder.connectTimeout)
+                                                    .setSoTimeout(thisBuilder.socketTimeout)
+                                                    .setSoKeepAlive(thisBuilder.soKeepAlive)
+                                                    .build())
+                                    .setMaxConnPerRoute(thisBuilder.maxConnPerRoute)
+                                    .setMaxConnTotal(thisBuilder.maxConnTotal);
+                        });
+            }
+
 
             return new ESLowClient(builder);
         }
